@@ -30,14 +30,14 @@ type RPCError struct {
 // unsupported" for some requests on both mainnet and testnet.
 func (e *RPCError) UnmarshalJSON(b []byte) error {
 	type maybeRPCErr struct {
-		I int
-		S string
+		Code    int
+		Message string
 	}
 	var good maybeRPCErr
 	err := json.Unmarshal(b, &good)
 	if err == nil {
-		e.Code = good.I
-		e.Message = good.S
+		e.Code = good.Code
+		e.Message = good.Message
 		return nil
 	}
 	var maybeStr string
