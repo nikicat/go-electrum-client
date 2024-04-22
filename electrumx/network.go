@@ -152,6 +152,11 @@ func (sc *ServerConn) pinger(ctx context.Context) {
 	defer t.Stop()
 
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
 		// listen => ReadBytes cannot wait forever. Reset the read deadline for
 		// the next ping's response, as the ping loop is running.
 		err := sc.conn.SetReadDeadline(time.Now().Add(pingInterval * 5 / 4))
@@ -166,12 +171,6 @@ func (sc *ServerConn) pinger(ctx context.Context) {
 			return
 		}
 		// sc.debug("\nSuccessful PING\n")
-
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-		}
 	}
 }
 
@@ -195,6 +194,12 @@ func (sc *ServerConn) negotiateVersion() (string, error) {
 
 	reader := bufio.NewReader(io.LimitReader(sc.conn, 1<<18))
 	msg, err := reader.ReadBytes(newline)
+	if err != nil {
+		return "", err
+	}
+
+	// Reset deadline to avoid disconnect
+	err = sc.conn.SetReadDeadline(time.Time{})
 	if err != nil {
 		return "", err
 	}
