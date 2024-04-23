@@ -431,7 +431,6 @@ func (sc *ServerConn) Request(ctx context.Context, method string, args any, resu
 	c := sc.registerRequest(id)
 
 	if err = sc.send(reqMsg); err != nil {
-		sc.cancel()
 		return err
 	}
 
