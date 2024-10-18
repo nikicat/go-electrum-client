@@ -95,7 +95,9 @@ func (s *SingleNode) start(clientCtx context.Context) error {
 	fmt.Println("starting single node on", network, "genesis", genesis)
 
 	// connect to electrumX
-	sc, err := electrumx.ConnectServer(clientCtx, s.serverAddr, s.connectOpts)
+	dialCtx, cancel := context.WithTimeout(clientCtx, 7*time.Second)
+	defer cancel()
+	sc, err := electrumx.ConnectServer(clientCtx, dialCtx, s.serverAddr, s.connectOpts)
 	if err != nil {
 		return err
 	}
@@ -140,7 +142,6 @@ func (s *SingleNode) start(clientCtx context.Context) error {
 }
 
 func (s *SingleNode) run(clientCtx context.Context) {
-
 	// Monitor connection loop
 
 	for {
@@ -172,7 +173,9 @@ func (s *SingleNode) run(clientCtx context.Context) {
 			fmt.Println("trying to make a new connection")
 
 			// connect to electrumX
-			sc, err := electrumx.ConnectServer(clientCtx, s.serverAddr, s.connectOpts)
+			dialCtx, cancel := context.WithTimeout(clientCtx, 7*time.Second)
+			defer cancel()
+			sc, err := electrumx.ConnectServer(clientCtx, dialCtx, s.serverAddr, s.connectOpts)
 			if err == nil {
 				s.serverMtx.Lock()
 				s.server.conn = sc
@@ -316,6 +319,7 @@ func (m *MultiNode) Start(ctx context.Context) error {
 	// TODO:
 	return nil
 }
+
 func (m *MultiNode) Stop() {
 	// TODO:
 }

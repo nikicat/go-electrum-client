@@ -179,7 +179,7 @@ func (sc *ServerConn) pinger(ctx context.Context) {
 
 // negotiateVersion should only be called once, and before starting the listen
 // read loop. As such, this does not use the Request method.
-func (sc *ServerConn) negotiateVersion() (string, error) {
+func (sc *ServerConn) negotiateVersion(ctx context.Context) (string, error) {
 	reqMsg, err := prepareRequest(sc.nextID(), "server.version", positional{"Electrum", "1.4"})
 	if err != nil {
 		return "", err
@@ -190,9 +190,10 @@ func (sc *ServerConn) negotiateVersion() (string, error) {
 		return "", err
 	}
 
-	err = sc.conn.SetReadDeadline(time.Now().Add(10 * time.Second))
-	if err != nil {
-		return "", err
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := sc.conn.SetReadDeadline(deadline); err != nil {
+			return "", err
+		}
 	}
 
 	reader := bufio.NewReader(io.LimitReader(sc.conn, 1<<18))
@@ -236,7 +237,7 @@ type ConnectOpts struct {
 // shutdown (connection closed and all requests handled). There is no automatic
 // reconnection functionality, as the caller should handle dropped connections
 // by potentially cycling to a different server.
-func ConnectServer(ctx context.Context, addr string, opts *ConnectOpts) (*ServerConn, error) {
+func ConnectServer(ctx, dialCtx context.Context, addr string, opts *ConnectOpts) (*ServerConn, error) {
 	var dial func(ctx context.Context, network, addr string) (net.Conn, error)
 	if opts.TorProxy != "" {
 		proxy := &socks.Proxy{
@@ -247,8 +248,6 @@ func ConnectServer(ctx context.Context, addr string, opts *ConnectOpts) (*Server
 		dial = new(net.Dialer).DialContext
 	}
 
-	dialCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
 	conn, err := dial(dialCtx, "tcp", addr)
 	if err != nil {
 		return nil, err
@@ -256,7 +255,7 @@ func ConnectServer(ctx context.Context, addr string, opts *ConnectOpts) (*Server
 
 	if opts.TLSConfig != nil {
 		conn = tls.Client(conn, opts.TLSConfig)
-		err = conn.(*tls.Conn).HandshakeContext(ctx)
+		err = conn.(*tls.Conn).HandshakeContext(dialCtx)
 		if err != nil {
 			conn.Close()
 			return nil, err
@@ -282,7 +281,7 @@ func ConnectServer(ctx context.Context, addr string, opts *ConnectOpts) (*Server
 	ctx, sc.cancel = context.WithCancel(ctx)
 
 	// Negotiate protocol version.
-	sc.proto, err = sc.negotiateVersion()
+	sc.proto, err = sc.negotiateVersion(dialCtx)
 	if err != nil {
 		conn.Close()
 		return nil, err // e.g. code 1: "unsupported protocol version: 1.4"
