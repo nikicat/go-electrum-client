@@ -236,7 +236,7 @@ type ConnectOpts struct {
 // shutdown (connection closed and all requests handled). There is no automatic
 // reconnection functionality, as the caller should handle dropped connections
 // by potentially cycling to a different server.
-func ConnectServer(ctx context.Context, addr string, opts *ConnectOpts) (*ServerConn, error) {
+func ConnectServer(ctx, dialCtx context.Context, addr string, opts *ConnectOpts) (*ServerConn, error) {
 	var dial func(ctx context.Context, network, addr string) (net.Conn, error)
 	if opts.TorProxy != "" {
 		proxy := &socks.Proxy{
@@ -247,8 +247,6 @@ func ConnectServer(ctx context.Context, addr string, opts *ConnectOpts) (*Server
 		dial = new(net.Dialer).DialContext
 	}
 
-	dialCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
 	conn, err := dial(dialCtx, "tcp", addr)
 	if err != nil {
 		return nil, err
