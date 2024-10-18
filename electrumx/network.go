@@ -82,6 +82,7 @@ func (sc *ServerConn) listen(ctx context.Context) {
 	// listen is charged with sending on the response and notification channels.
 	// As such, only listen should close these channels, and only after the read
 	// loop has finished.
+	defer sc.debug("listen loop stopped")
 	defer sc.cancelRequests()        // close the response chans
 	defer sc.closeHeadersNotify()    // close the single headers notify channel
 	defer sc.closeScripthashNotify() // close the single scripthash notify channel
@@ -105,6 +106,7 @@ func (sc *ServerConn) listen(ctx context.Context) {
 			sc.cancel()
 			return
 		}
+		sc.debug("Received response [%s] %s", sc.conn.LocalAddr(), msg[:len(msg)-1])
 
 		var jsonResp response
 		err = json.Unmarshal(msg, &jsonResp)
@@ -148,6 +150,7 @@ func (sc *ServerConn) listen(ctx context.Context) {
 }
 
 func (sc *ServerConn) pinger(ctx context.Context) {
+	defer sc.debug("pinger stopped")
 	t := time.NewTicker(pingInterval)
 	defer t.Stop()
 
@@ -321,6 +324,7 @@ func (sc *ServerConn) send(msg []byte) error {
 	if err != nil {
 		return err
 	}
+	sc.debug("Sending request [%s] %s", sc.conn.LocalAddr(), msg[:len(msg)-1])
 	_, err = sc.conn.Write(msg)
 	return err
 }
